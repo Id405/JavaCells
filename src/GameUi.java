@@ -68,11 +68,15 @@ public class GameUi extends JPanel {
 	public void Custom() {
 		try {
 			int tSize = Integer.parseInt(sizeField.getText());
-			if (tSize > 10) {
+			if (tSize > 3) {
 				width = tSize;
 				height = tSize;
 			}
-
+		} catch (NumberFormatException e) {
+			
+		}
+		
+		try {
 			int tmines = Integer.parseInt(mineField.getText());
 			if (tmines > 1) {
 				minecount = tmines;
@@ -80,6 +84,7 @@ public class GameUi extends JPanel {
 		} catch (NumberFormatException e) {
 			
 		}
+		
 		addGameScreen();
 	}
 

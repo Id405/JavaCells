@@ -8,7 +8,7 @@ import java.util.Properties;
 
 public class ColorScheme {
 	HashMap<String, Color> scheme;
-	final static String SCHEMEDIR = System.getProperty("user.home") + "\\Documents\\HexMines\\scheme.properties";
+	final static String SCHEMEDIR = System.getProperty("user.home") + "\\Documents\\JavaCells\\scheme.properties";
 
 	ColorScheme() throws IOException {
 		FileInputStream fis = null;

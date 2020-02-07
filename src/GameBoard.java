@@ -16,6 +16,8 @@ public class GameBoard extends JPanel {
 	ColorScheme scheme;
 
 	int w, h, count;
+	int flagged = 0;
+	
 	double hexSize = 25;
 	double hexGap =2;
 	double vStretch = 24;
@@ -34,6 +36,7 @@ public class GameBoard extends JPanel {
 	Cell[][] cells;
 
 	private boolean lose;
+	private boolean win;
 
 	GameBoard(GameLogic g, int width, int height, int c) {
 		logic = g;
@@ -111,11 +114,20 @@ public class GameBoard extends JPanel {
 				}
 			}
 		}
+		
+		g.drawString(flagged + " / " + count, 10, 10);
 
 		if (lose) {
 			g.setColor(scheme.get("flag"));
 			g.setFont(new Font("Helvetica", Font.PLAIN, 36));
 			g.drawString("You lose, Click to restart", getWidth() / 2 - 36 * "You lose, Click to restart".length() / 4,
+					50);
+		}
+		
+		if (win) {
+			g.setColor(scheme.get("flag"));
+			g.setFont(new Font("Helvetica", Font.PLAIN, 36));
+			g.drawString("You WIN, Click to restart", getWidth() / 2 - 36 * "You WIN, Click to restart".length() / 4,
 					50);
 		}
 	}
@@ -171,6 +183,11 @@ public class GameBoard extends JPanel {
 			logic.lose();
 			return;
 		}
+		
+		if (win) {
+			logic.win();
+			return;
+		}
 
 		int xxx = 0;
 		int yyy = 0;
@@ -201,6 +218,12 @@ public class GameBoard extends JPanel {
 			if (rightClick) {
 				if (cells[xxx][yyy].isHidden()) {
 					cells[xxx][yyy].flag = !cells[xxx][yyy].flag;
+					
+					if(cells[xxx][yyy].flag == true) {
+						flagged++;
+					} else {
+						flagged--;
+					}
 				}
 			} else {
 				if (cells[xxx][yyy].isBomb()) {
@@ -210,6 +233,11 @@ public class GameBoard extends JPanel {
 					if (!cells[xxx][yyy].isFlag()) {
 						unhide(xxx, yyy);
 					}
+				}
+				
+				if(checkWin()) {
+					win = true;
+					repaint();
 				}
 			}
 		}
@@ -288,6 +316,17 @@ public class GameBoard extends JPanel {
 				}
 			}
 		}
+	}
+	
+	private boolean checkWin() {
+		for (int x = 0; x < w; x++) {
+			for (int y = 0; y < h; y++) {
+				if (cells[x][y].hidden && !cells[x][y].bomb) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	static class MouseListener extends MouseAdapter {
