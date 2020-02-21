@@ -19,8 +19,7 @@ public class main {
 
 		JFrame frame = new JFrame();
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setExtendedState(Frame.MAXIMIZED_BOTH);
-		frame.setSize(800, 800);
+		frame.setSize(1000, 400);
 		frame.setLayout(new BorderLayout());
 
 		GameLogic gameLogic = new GameLogic(frame);

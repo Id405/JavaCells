@@ -1,30 +1,41 @@
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
 import java.awt.RenderingHints;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import javax.swing.JPanel;
+import javax.swing.Timer;
 
 public class GameBoard extends JPanel {
+	final static boolean CHEAT = true;
+
 	GameLogic logic;
 	ColorScheme scheme;
 
+	Timer t;
+
 	int w, h, count;
+	int type = 0;
+	long time = -1;
 	int flagged = 0;
-	
+
 	double hexSize = 25;
-	double hexGap =2;
+	double hexGapScale = 20;
 	double vStretch = 24;
-	double vRowStretch = 0.9;
+	double vRowStretch = 0.87;
 	double hexMargin = 50;
 	double minHexSize;
-	
+
 	double hexWidth;
 	double hexHeight;
 
@@ -38,7 +49,7 @@ public class GameBoard extends JPanel {
 	private boolean lose;
 	private boolean win;
 
-	GameBoard(GameLogic g, int width, int height, int c) {
+	GameBoard(GameLogic g, int width, int height, int c, int type) {
 		logic = g;
 		w = width;
 		h = height;
@@ -47,7 +58,6 @@ public class GameBoard extends JPanel {
 		try {
 			scheme = new ColorScheme();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
@@ -55,10 +65,13 @@ public class GameBoard extends JPanel {
 
 		cells = new Cell[w][h];
 		initializeBoard(count);
-		
+
 		System.out.println(width + ", " + height + " " + c);
-		
+
 		addMouseListener(new MouseListener(this));
+
+		t = new Timer(10, new RepaintListener());
+		t.start();
 	}
 
 	protected void paintComponent(Graphics g2) {
@@ -68,21 +81,52 @@ public class GameBoard extends JPanel {
 
 		super.paintComponent(g);
 
+		paintHexagons(g);
+
+		g.drawString(flagged + " / " + count, 10, 10);
+
+		long millis = logic.getTimer();
+
+		if (time != -1) {
+			millis = time;
+		}
+
+		String timeFormat = Helpers.formatTime(millis);
+
+		g.drawString(timeFormat, 10, getHeight() - 30);
+
+		if (lose) {
+			g.setColor(scheme.get("flag"));
+			g.setFont(new Font("Helvetica", Font.PLAIN, 36));
+			g.drawString("You lose, Click to restart", getWidth() / 2 - 36 * "You lose, Click to restart".length() / 4,
+					50);
+		}
+
+		if (win) {
+			g.setColor(scheme.get("flag"));
+			g.setFont(new Font("Helvetica", Font.PLAIN, 36));
+			g.drawString("You WIN, Click to restart", getWidth() / 2 - 36 * "You WIN, Click to restart".length() / 4,
+					50);
+		}
+	}
+
+	@SuppressWarnings("unused")
+	void paintHexagons(Graphics2D g) {
 		hexWidth = ((double) (w) * hexSize * 2);
-		hexHeight = ((double) (h) * hexSize * 2)*vRowStretch;
-		
-	    double tempHexSizeW = (double) hexSize * ((double)getWidth()-hexMargin)/hexWidth;
-	    double tempHexSizeH = (double) hexSize * ((double)getHeight()-hexMargin)/hexHeight;
-	    
-	    if(tempHexSizeW < tempHexSizeH) {
-	    	hexSize = tempHexSizeW;
-	    } else {
-	    	hexSize = tempHexSizeH;
-	    }
-	    
-	    hexWidth = ((double) w * hexSize * 2);
-		hexHeight = ((double) (h-1) * hexSize * 2)*vRowStretch;
-	    
+		hexHeight = ((double) (h) * hexSize * 2) * vRowStretch;
+
+		double tempHexSizeW = (double) hexSize * ((double) getWidth() - hexMargin) / hexWidth;
+		double tempHexSizeH = (double) hexSize * ((double) getHeight() - hexMargin) / hexHeight;
+
+		if (tempHexSizeW < tempHexSizeH) {
+			hexSize = tempHexSizeW;
+		} else {
+			hexSize = tempHexSizeH;
+		}
+
+		hexWidth = ((double) w * hexSize * 2);
+		hexHeight = ((double) (h - 1) * hexSize * 2) * vRowStretch;
+
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				double xOffset = (double) (y % 2) / 2;
@@ -96,12 +140,16 @@ public class GameBoard extends JPanel {
 				if (cells[x][y].flag) {
 					g.setColor(scheme.get("flag"));
 				}
-				
+
+				if (cells[x][y].bomb && CHEAT) {
+					g.setColor(scheme.get("bomb"));
+				}
+
 				double yPreOffset = (double) y * hexSize * 2 * vRowStretch;
-				int yPos = (int) ((yPreOffset + ((double) getHeight() / 2 - hexHeight / 2)));
-				
+				double yPos = ((yPreOffset + ((double) getHeight() / 2 - hexHeight / 2)));
+
 				double xPreOffset = (((double) x) + xOffset) * hexSize * 2;
-				int xPos = (int) (xPreOffset + ((double) getWidth() / 2 - hexWidth / 2));
+				double xPos = (xPreOffset + ((double) getWidth() / 2 - hexWidth / 2));
 
 				paintHexagon(g, xPos, yPos);
 
@@ -109,37 +157,32 @@ public class GameBoard extends JPanel {
 
 				if (cells[x][y].getAdjacent() != 0 && !cells[x][y].isHidden() && !cells[x][y].isBomb()) {
 					g.setFont(new Font("Helvetica", Font.PLAIN, 12));
-					g.drawString("" + cells[x][y].getAdjacent(), xPos + (int) (hexSize * xTOffset - (hexSize / 2)),
-							yPos + (int) (hexSize * yTOffset));
+
+					String text = "" + cells[x][y].getAdjacent();
+
+					FontMetrics metrics = g.getFontMetrics(getFont());
+
+					int x1 = (int) (xPos - metrics.stringWidth(text) / 2);
+					// Determine the Y coordinate for the text (note we add the ascent, as in java
+					// 2d 0 is top of the screen)
+					int y1 = (int) ((yPos - metrics.getHeight() / 2) + metrics.getAscent());
+
+					g.drawString(text, x1, y1);
 				}
 			}
 		}
-		
-		g.drawString(flagged + " / " + count, 10, 10);
-
-		if (lose) {
-			g.setColor(scheme.get("flag"));
-			g.setFont(new Font("Helvetica", Font.PLAIN, 36));
-			g.drawString("You lose, Click to restart", getWidth() / 2 - 36 * "You lose, Click to restart".length() / 4,
-					50);
-		}
-		
-		if (win) {
-			g.setColor(scheme.get("flag"));
-			g.setFont(new Font("Helvetica", Font.PLAIN, 36));
-			g.drawString("You WIN, Click to restart", getWidth() / 2 - 36 * "You WIN, Click to restart".length() / 4,
-					50);
-		}
 	}
 
-	void paintHexagon(Graphics2D g, int x, int y) {
+	void paintHexagon(Graphics2D g, double x, double y) {
 		int sides = 6;
 		Polygon p = new Polygon();
 
+		double hexGap = hexSize / hexGapScale;
+
 		double theta = 2 * Math.PI / sides;
 		for (int i = 0; i < sides; ++i) {
-			int xx = (int) (Math.cos(theta * i + Math.PI / 2) * (hexSize + hexGap) + x);
-			int yy = (int) (Math.sin(theta * i + Math.PI / 2) * (hexSize + hexGap) + y);
+			int xx = (int) (Math.cos(theta * (double) i + Math.PI / 2) * (hexSize + hexGap) + x);
+			int yy = (int) (Math.sin(theta * (double) i + Math.PI / 2) * (hexSize + hexGap) + y);
 			p.addPoint(xx, yy);
 		}
 		g.fillPolygon(p);
@@ -183,9 +226,9 @@ public class GameBoard extends JPanel {
 			logic.lose();
 			return;
 		}
-		
+
 		if (win) {
-			logic.win();
+			logic.win(time);
 			return;
 		}
 
@@ -200,7 +243,7 @@ public class GameBoard extends JPanel {
 
 				double yPreOffset = (double) y * hexSize * 2 * vRowStretch;
 				int yPos = (int) ((yPreOffset + ((double) getHeight() / 2 - hexHeight / 2)));
-				
+
 				double xPreOffset = (((double) x) + xOffset) * hexSize * 2;
 				int xPos = (int) (xPreOffset + ((double) getWidth() / 2 - hexWidth / 2));
 
@@ -218,8 +261,8 @@ public class GameBoard extends JPanel {
 			if (rightClick) {
 				if (cells[xxx][yyy].isHidden()) {
 					cells[xxx][yyy].flag = !cells[xxx][yyy].flag;
-					
-					if(cells[xxx][yyy].flag == true) {
+
+					if (cells[xxx][yyy].flag == true) {
 						flagged++;
 					} else {
 						flagged--;
@@ -234,9 +277,11 @@ public class GameBoard extends JPanel {
 						unhide(xxx, yyy);
 					}
 				}
-				
-				if(checkWin()) {
+
+				if (checkWin()) {
 					win = true;
+					time = logic.getTimer();
+					t.stop();
 					repaint();
 				}
 			}
@@ -305,6 +350,7 @@ public class GameBoard extends JPanel {
 		repaint();
 
 		lose = true;
+		t.stop();
 	}
 
 	private void showBombs() {
@@ -317,7 +363,7 @@ public class GameBoard extends JPanel {
 			}
 		}
 	}
-	
+
 	private boolean checkWin() {
 		for (int x = 0; x < w; x++) {
 			for (int y = 0; y < h; y++) {
@@ -338,6 +384,12 @@ public class GameBoard extends JPanel {
 
 		public void mouseClicked(MouseEvent e) {
 			gboard.mouseClicked(e.getX(), e.getY(), e.getButton() == MouseEvent.BUTTON3);
+		}
+	}
+
+	class RepaintListener implements ActionListener {
+		public void actionPerformed(ActionEvent e) {
+			repaint();
 		}
 	}
 }

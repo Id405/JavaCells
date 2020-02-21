@@ -69,7 +69,7 @@ public class Cell {
 
 	public int getAdjacent() {
 		findAdjacent();
-		if(bomb) {
+		if (bomb) {
 			adjacent = 7;
 		}
 		return adjacent;
