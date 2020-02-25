@@ -17,7 +17,7 @@ import javax.swing.JPanel;
 import javax.swing.Timer;
 
 public class GameBoard extends JPanel {
-	final static boolean CHEAT = true;
+	final static boolean CHEAT = false;
 
 	GameLogic logic;
 	ColorScheme scheme;
@@ -42,7 +42,7 @@ public class GameBoard extends JPanel {
 	double xTOffset = 0.3;
 	double yTOffset = 0.1;
 
-	double clickMargin = 10;
+	double clickMargin = 100;
 
 	Cell[][] cells;
 
